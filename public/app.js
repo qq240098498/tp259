@@ -397,6 +397,7 @@ function batchDetailRow(b) {
   const d = state.batchDetail[b.id];
   if (!d) return '<tr class="row-detail"><td colspan="13"><div class="detail-note">正在读取批次详情…</div></td></tr>';
   const out = state.batchOut[b.id] || {};
+  const check = d.releaseCheck || {};
 
   const records = (d.records || []).map(function (r) {
     const oor = out[r.id];
@@ -406,16 +407,25 @@ function batchDetailRow(b) {
       '<td>' + (r.probeExpired ? pill('已过期', 'pill-bad') : pill('有效', 'pill-mute')) + '</td></tr>';
   }).join('') || '<tr><td colspan="6" class="empty">没有温度记录</td></tr>';
 
+  /* 超限段逐段列出（序号、起止时刻、时长），合计行与放行判定的累计超限同用一个接口值 */
   let segmentsHtml;
+  let segTitle;
   if (d.segmentsUnavailable) {
     const emsg = (state.batchDetailError[b.id] && state.batchDetailError[b.id].message) || '批次详情接口报错';
+    segTitle = '超限段（读不到）';
     segmentsHtml = '<div class="detail-note">读不到超限段：' + esc(emsg) + '（服务端 /api/batches/:id 报错，已退回其他接口）</div>';
   } else {
-    const segRows = (d.segments || []).map(function (s) {
-      return '<tr><td>' + esc(s.startAt) + '</td><td>' + esc(s.endAt) + '</td><td class="num">' + num(s.minutes) + '</td>' +
+    const segs = d.segments || [];
+    segTitle = '超限段（' + segs.length + ' 段，累计 ' + num(check.totalMinutes) + ' 分钟）';
+    const segRows = segs.map(function (s, i) {
+      return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(s.startAt) + '</td><td>' + esc(s.endAt) + '</td>' +
+        '<td class="num">' + num(s.minutes) + '</td>' +
         '<td class="num">' + num(s.peakC) + '</td><td class="num">' + num(s.points) + '</td></tr>';
-    }).join('') || '<tr><td colspan="5" class="empty">没有超限段</td></tr>';
-    segmentsHtml = '<table class="mini-table"><thead><tr><th>起</th><th>止</th><th class="num">时长(分)</th><th class="num">峰值(℃)</th><th class="num">点数</th></tr></thead><tbody>' + segRows + '</tbody></table>';
+    }).join('') || '<tr><td colspan="6" class="empty">没有超限段</td></tr>';
+    const totalRow = segs.length
+      ? '<tr class="row-total"><td colspan="3">合计（累计超限，与放行判定同一口径）</td><td class="num">' + num(check.totalMinutes) + '</td><td colspan="2"></td></tr>'
+      : '';
+    segmentsHtml = '<table class="mini-table"><thead><tr><th class="num">#</th><th>起</th><th>止</th><th class="num">时长(分)</th><th class="num">峰值(℃)</th><th class="num">点数</th></tr></thead><tbody>' + segRows + totalRow + '</tbody></table>';
   }
 
   const gaps = (d.chainGaps || []).map(function (g) {
@@ -423,7 +433,6 @@ function batchDetailRow(b) {
       '<td class="num">' + num(g.countedMinutes) + '</td></tr>';
   }).join('') || '<tr><td colspan="4" class="empty">没有断链缺口</td></tr>';
 
-  const check = d.releaseCheck || {};
   const conds = (check.conditions || []).slice();
   const expired = check.expiredProbes || [];
   conds.push({ key: 'calibration', ok: expired.length === 0, value: expired.length, limit: 0, text: '参与判定的探头都在校准有效期内' });
@@ -451,7 +460,7 @@ function batchDetailRow(b) {
     '<div class="detail-grid">' +
     '<div class="detail-block"><h4>温度记录（' + (d.records || []).length + '）</h4>' +
     '<table class="mini-table"><thead><tr><th>时刻</th><th>探头</th><th class="num">温度(℃)</th><th>来源</th><th>是否超限</th><th>探头是否过期</th></tr></thead><tbody>' + records + '</tbody></table></div>' +
-    '<div class="detail-block"><h4>超限段（' + (d.segments || []).length + '）</h4>' + segmentsHtml +
+    '<div class="detail-block"><h4>' + esc(segTitle) + '</h4>' + segmentsHtml +
     '<h4>断链缺口（' + (d.chainGaps || []).length + '）</h4>' +
     '<table class="mini-table"><thead><tr><th>起</th><th>止</th><th class="num">实际(分)</th><th class="num">计入(分)</th></tr></thead><tbody>' + gaps + '</tbody></table></div>' +
     '<div class="detail-block"><h4>放行判定</h4><ul class="cond-list">' + condHtml + '</ul>' +
