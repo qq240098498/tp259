@@ -415,7 +415,11 @@ function batchDetailRow(b) {
       return '<tr><td>' + esc(s.startAt) + '</td><td>' + esc(s.endAt) + '</td><td class="num">' + num(s.minutes) + '</td>' +
         '<td class="num">' + num(s.peakC) + '</td><td class="num">' + num(s.points) + '</td></tr>';
     }).join('') || '<tr><td colspan="5" class="empty">没有超限段</td></tr>';
-    segmentsHtml = '<table class="mini-table"><thead><tr><th>起</th><th>止</th><th class="num">时长(分)</th><th class="num">峰值(℃)</th><th class="num">点数</th></tr></thead><tbody>' + segRows + '</tbody></table>';
+    /* 累计超限按批次周期累计、跨月不重置；合计直接显示接口返回的 totalExcursionMinutes，
+       与批次清单「累计超限」列、放行判定里的累计值是同一份数 */
+    segmentsHtml = '<div class="detail-note">累计超限合计 ' + esc(num(d.totalExcursionMinutes)) + ' 分钟，由 ' + (d.segments || []).length +
+      ' 段组成（按批次周期累计，跨月不重置），逐段如下：</div>' +
+      '<table class="mini-table"><thead><tr><th>起</th><th>止</th><th class="num">时长(分)</th><th class="num">峰值(℃)</th><th class="num">点数</th></tr></thead><tbody>' + segRows + '</tbody></table>';
   }
 
   const gaps = (d.chainGaps || []).map(function (g) {

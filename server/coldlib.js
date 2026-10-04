@@ -122,20 +122,13 @@ function accumulatedExcursionMinutes(data, batchId) {
   return excursionStats(data, batchId).totalMinutes;
 }
 
-function monthlyExcursionMinutes(data, batchId) {
-  const rows = effectiveRecords(data, batchId);
-  const firstAt = rows.length ? rows[0].at : '';
-  const month = firstAt.slice(0, 7);
-  const scoped = rows.filter((r) => String(r.at).slice(0, 7) === month);
-  return segmentStats(scoped, data.settings).totalMinutes;
-}
-
 // 放行判定：最长超限、累计超限、断链、探头校准四条
 function releaseCheck(data, batch) {
   const settings = data.settings;
   const stats = excursionStats(data, batch.id);
   const chain = chainGaps(data, batch.id);
-  const accumulated = monthlyExcursionMinutes(data, batch.id);
+  // 累计超限：按批次周期累计（入库至今、跨月不重置），与页面展示的 totalMinutes 用同一份数
+  const accumulated = stats.totalMinutes;
   const expired = expiredProbes(data, batch.id, batch.loadedAt ? String(batch.loadedAt).slice(0, 10) : '');
   const conditions = [
     { key: 'longest', ok: stats.longestMinutes <= Number(settings.allowExcursionMinutes), value: stats.longestMinutes, limit: Number(settings.allowExcursionMinutes), text: '单次连续超限不超过 ' + settings.allowExcursionMinutes + ' 分钟' },
@@ -168,6 +161,5 @@ module.exports = {
   probeValidOn,
   expiredProbes,
   accumulatedExcursionMinutes,
-  monthlyExcursionMinutes,
   releaseCheck,
 };
